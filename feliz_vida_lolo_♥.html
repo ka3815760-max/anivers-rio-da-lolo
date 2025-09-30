@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Feliz Aniversário 🎉</title>
+  <style>
+    :root{--bg:#0b1020;--card:#0f1724;--accent:#ff6b81}
+    *{box-sizing:border-box;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071021 0%, #081226 60%);color:#e6eef8}
+    .app{max-width:820px;margin:24px auto;padding:18px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+    header{display:flex;gap:12px;align-items:center}
+    .photo{width:120px;height:120px;border-radius:12px;background:linear-gradient(135deg,#111827,#0b1220);display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px dashed rgba(255,255,255,0.04)}
+    .photo img{width:100%;height:100%;object-fit:cover}
+    .controls{flex:1}
+    .controls input[type=file]{display:block;margin-bottom:8px}
+    .title{font-size:20px;margin:0 0 6px}
+    textarea{width:100%;min-height:120px;border-radius:10px;padding:12px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.02);color:inherit;resize:vertical}
+    .cake{font-size:48px;display:block;text-align:center;margin:14px 0}
+    .actions{display:flex;gap:8px;align-items:center}
+    .btn{background:#111827;border:1px solid rgba(255,255,255,0.03);color:inherit;padding:8px 12px;border-radius:8px;cursor:pointer}
+    .btn.primary{background:linear-gradient(90deg,#ff7aa2,#ffb86b);color:#081026;border:none}
+    .hint{font-size:13px;color:#b9c6d9}
+    #fireworksCanvas{position:fixed;left:0;top:0;pointer-events:none;z-index:40}
+    /* chuva de corações */
+    .hearts{position:fixed;left:0;top:0;right:0;bottom:0;pointer-events:none;overflow:hidden;z-index:30}
+    .heart{position:absolute;font-size:18px;will-change:transform,opacity}
+    /* modal senha */
+    .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg, rgba(2,6,23,0.86), rgba(2,6,23,0.94));z-index:50}
+    .box{background:var(--card);padding:22px;border-radius:12px;max-width:420px;width:100%;text-align:center}
+    .box input{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);margin-top:12px}
+    .small{font-size:13px;color:#a7b8d6}
+    footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:#9fb1d6}
+    .shareInfo{font-size:13px}
+    @media(max-width:520px){.photo{width:92px;height:92px}}
+  </style>
+</head>
+<body>
+  <div class="modal" id="pwdModal" aria-hidden="false">
+    <div class="box">
+      <h2>Insira a senha</h2>
+      <p class="small">Para acessar este cartão de aniversário, digite a data de nascimento (formato: DD/MM/AAAA).</p>
+      <input id="pwdInput" placeholder="Ex: 30/09/2010" />
+      <div style="margin-top:12px"><button class="btn primary" id="pwdOk">Entrar</button></div>
+      <p class="small" style="margin-top:8px;color:#ffcccb">Senha correta: 30/09/2010</p>
+    </div>
+  </div>
+
+  <canvas id="fireworksCanvas"></canvas>
+  <div class="hearts" id="hearts"></div>
+
+  <main class="app" id="content" aria-hidden="true">
+    <header>
+      <label class="photo" id="photoLabel" title="Clique para trocar a foto">
+        <img id="photoPreview" src="" alt="Foto do aniversariante" style="display:none" />
+        <div id="photoPlaceholder" style="padding:10px;text-align:center;color:#7f9bbf">Clique para adicionar<br>foto</div>
+        <input type="file" id="photoInput" accept="image/*" style="display:none" />
+      </label>
+      <div class="controls">
+        <h1 class="title">Cartão de Aniversário</h1>
+        <div class="hint">Clique em qualquer lugar da página para soltar fogos. Chuva de corações ligada por padrão.</div>
+        <div style="margin-top:8px">
+          <button class="btn" id="toggleHearts">Desligar chuva de corações</button>
+          <button class="btn" id="clearStorage">Redefinir visual</button>
+        </div>
+      </div>
+    </header>
+
+    <section style="margin-top:16px">
+      <label for="message" class="small">Mensagem</label>
+      <textarea id="message" placeholder="Escreva sua mensagem..."></textarea>
+      <div class="cake">🎂</div>
+      <div class="actions">
+        <button class="btn primary" id="downloadBtn">Baixar como imagem</button>
+        <div class="shareInfo">Compartilhe o arquivo HTML — quem abrir precisará da senha.</div>
+      </div>
+    </section>
+    <footer>
+      <div class="small">Criado com muito ~esforço~ carinho</div>
+      <div class="small">Senha de acesso: <strong>30/09/2010</strong></div>
+    </footer>
+  </main>
+
+  <script>
+    // senha simples: não é segura, serve pro propósito do cartão.
+    const CORRECT = '30/09/2010';
+    const modal = document.getElementById('pwdModal');
+    const content = document.getElementById('content');
+    const input = document.getElementById('pwdInput');
+    const ok = document.getElementById('pwdOk');
+
+    function unlock() {
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden','true');
+      content.removeAttribute('aria-hidden');
+      localStorage.setItem('aniversario_unlocked','1');
+    }
+
+    ok.addEventListener('click', ()=>{
+      if(input.value.trim()===CORRECT){unlock()}else{alert('Senha incorreta. Tente novamente.')}
+    });
+
+    input.addEventListener('keydown', e=>{if(e.key==='Enter') ok.click()});
+
+    // auto-desbloqueio se já validado antes
+    if(localStorage.getItem('aniversario_unlocked')==='1'){
+      unlock();
+    }
+
+    // photo upload e preview
+    const photoInput = document.getElementById('photoInput');
+    const photoPreview = document.getElementById('photoPreview');
+    const photoPlaceholder = document.getElementById('photoPlaceholder');
+    const photoLabel = document.getElementById('photoLabel');
+
+    photoLabel.addEventListener('click', ()=>photoInput.click());
+    photoInput.addEventListener('change', e=>{
+      const f = e.target.files[0];
+      if(!f) return;
+      const url = URL.createObjectURL(f);
+      photoPreview.src = url; photoPreview.style.display='block'; photoPlaceholder.style.display='none';
+    });
+
+    // hearts
+    const heartsEl = document.getElementById('hearts');
+    let heartsOn = true;
+    const toggleHeartsBtn = document.getElementById('toggleHearts');
+    toggleHeartsBtn.addEventListener('click', ()=>{
+      heartsOn = !heartsOn; toggleHeartsBtn.textContent = heartsOn ? 'Desligar chuva de corações' : 'Ligar chuva de corações';
+    });
+
+    function spawnHeart(){
+      if(!heartsOn) return;
+      const h = document.createElement('div');
+      h.className='heart';
+      h.textContent = '❤';
+      const size = Math.random()*18 + 10;
+      h.style.fontSize = size+'px';
+      const left = Math.random()*100;
+      h.style.left = left+'%';
+      h.style.top = '-4%';
+      h.style.opacity = '0.95';
+      heartsEl.appendChild(h);
+      const duration = 4000 + Math.random()*3000;
+      const rotate = (Math.random()*60 - 30)+'deg';
+      h.animate([
+        {transform: `translateY(0) rotate(0)`, opacity:1},
+        {transform: `translateY(${window.innerHeight + 60}px) rotate(${rotate})`, opacity:0.1}
+      ],{duration, easing:'linear'}).onfinish = ()=>h.remove();
+    }
+    // spawn hearts periodically
+    setInterval(()=>{spawnHeart(); if(Math.random()>0.85) spawnHeart();}, 400);
+
+    // fireworks canvas
+    const canvas = document.getElementById('fireworksCanvas');
+    const ctx = canvas.getContext('2d');
+    function resize(){canvas.width = window.innerWidth; canvas.height = window.innerHeight}
+    window.addEventListener('resize',resize); resize();
+
+    let particles = [];
+    function Particle(x,y,dx,dy,color){this.x=x;this.y=y;this.vx=dx;this.vy=dy;this.life=80;this.color=color}
+    Particle.prototype.update = function(){this.x+=this.vx; this.y+=this.vy; this.vy += 0.06; this.vx*=0.99; this.vy*=0.99; this.life--}
+    Particle.prototype.draw = function(){ctx.beginPath(); ctx.fillStyle = this.color; ctx.globalAlpha = Math.max(this.life/80,0); ctx.fillRect(this.x, this.y, 2,2)}
+
+    function explode(x,y){
+      const hue = Math.floor(Math.random()*360);
+      const color = `hsl(${hue}deg 100% 60%)`;
+      const count = 32 + Math.floor(Math.random()*24);
+      for(let i=0;i<count;i++){
+        const ang = Math.random()*Math.PI*2;
+        const speed = 1 + Math.random()*4;
+        particles.push(new Particle(x,y,Math.cos(ang)*speed, Math.sin(ang)*speed, color));
+      }
+    }
+
+    window.addEventListener('click', (e)=>{ // click anywhere
+      if(content.getAttribute('aria-hidden')==='true') return; // locked
+      explode(e.clientX, e.clientY);
+    });
+
+    function animate(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      for(let i=particles.length-1;i>=0;i--){
+        const p = particles[i]; p.update(); p.draw(); if(p.life<=0) particles.splice(i,1);
+      }
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+
+    // download as image (screenshot-like)
+    document.getElementById('downloadBtn').addEventListener('click', async ()=>{
+      // simple approach: render the main card to a canvas
+      const el = content;
+      try{
+        const svg = `data:image/svg+xml;charset=utf-8,` + encodeURIComponent(`
+          <svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'>
+            <foreignObject width='100%' height='100%'>${new XMLSerializer().serializeToString(el)}</foreignObject>
+          </svg>`);
+        const img = new Image(); img.src = svg;
+        img.onload = ()=>{
+          const c = document.createElement('canvas'); c.width=800; c.height=600; const cx=c.getContext('2d'); cx.fillStyle='#071021'; cx.fillRect(0,0,c.width,c.height); cx.drawImage(img,0,0);
+          const data = c.toDataURL('image/png'); const a = document.createElement('a'); a.href=data; a.download='cartao_aniversario.png'; a.click();
+        }
+      }catch(err){alert('Não foi possível baixar — abra em um navegador moderno.')}
+    });
+
+    // limpar preferências
+    document.getElementById('clearStorage').addEventListener('click', ()=>{localStorage.removeItem('aniversario_unlocked');location.reload()});
+
+    // acessibilidade: enter pra enviar senha
+  </script>
+</body>
+</html>
